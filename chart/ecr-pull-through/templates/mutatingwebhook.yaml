@@ -21,7 +21,6 @@ webhooks:
         operations: ["CREATE", "UPDATE"]
         scope: Namespaced
     namespaceSelector:
-      matchLabels:
-        {{- toYaml .Values.WebhookNamespaceSelector.matchLabels | nindent 8 }}
+      {{- toYaml .Values.WebhookNamespaceSelector | nindent 6 }}
     sideEffects: None
     admissionReviewVersions: ["v1"]
