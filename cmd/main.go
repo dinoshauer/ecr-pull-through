@@ -46,7 +46,8 @@ func handleMutate(w http.ResponseWriter, r *http.Request) {
 }
 
 func imageContainsHost(image string) bool {
-	return strings.Contains(image, ".")
+	parts := strings.Split(image, ":")
+	return strings.Contains(parts[0], ".")
 }
 
 // Helper function to process Docker Hub official images
