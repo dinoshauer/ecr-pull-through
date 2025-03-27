@@ -17,7 +17,10 @@ webhooks:
     rules:
       - apiGroups: [""]
         apiVersions: ["v1"]
-        resources: ["pods"]
+        resources:
+        - pods
+        - pods/ephemeralcontainers
+        - replicationcontrollers
         operations: ["CREATE", "UPDATE"]
         scope: Namespaced
     namespaceSelector:
