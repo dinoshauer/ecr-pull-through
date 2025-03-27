@@ -45,6 +45,10 @@ func handleMutate(w http.ResponseWriter, r *http.Request) {
 	w.Write(mutated)
 }
 
+func imageContainsHost(image string) bool {
+	return strings.Contains(image, ".")
+}
+
 // Helper function to process Docker Hub official images
 func isDockerHubOfficialImage(image string) bool {
 	// Handle both "nginx" and "docker.io/nginx" format
@@ -106,7 +110,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && !strings.HasPrefix(container.Image, ecrUrl) {
+			if !imageReplaced && !strings.HasPrefix(container.Image, ecrUrl) && !imageContainsHost(container.Image) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
 						// https://kubernetes.io/docs/concepts/containers/images/#image-names
@@ -147,7 +151,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && !strings.HasPrefix(initcontainer.Image, ecrUrl) {
+			if !imageReplaced && !strings.HasPrefix(initcontainer.Image, ecrUrl) && !imageContainsHost(initcontainer.Image) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
 						// https://kubernetes.io/docs/concepts/containers/images/#image-names
@@ -188,7 +192,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && !strings.HasPrefix(ephemeralcontainer.Image, ecrUrl) {
+			if !imageReplaced && !strings.HasPrefix(ephemeralcontainer.Image, ecrUrl) && !imageContainsHost(ephemeralcontainer.Image) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
 						// https://kubernetes.io/docs/concepts/containers/images/#image-names
