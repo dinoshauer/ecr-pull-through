@@ -23,7 +23,6 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 var config *Config
 
 func handleMutate(w http.ResponseWriter, r *http.Request) {
-
 	// read the body / request
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -72,7 +71,6 @@ func actuallyMutate(body []byte) ([]byte, error) {
 	resp := v1beta1.AdmissionResponse{}
 
 	if ar != nil {
-
 		// get the Pod object and unmarshal it into its struct, if we cannot, we might as well stop here
 		if err := json.Unmarshal(ar.Object.Raw, &pod); err != nil {
 			return nil, fmt.Errorf("unable unmarshal pod json object %v", err)
@@ -84,6 +82,8 @@ func actuallyMutate(body []byte) ([]byte, error) {
 		pT := v1beta1.PatchTypeJSONPatch
 		resp.PatchType = &pT
 
+		ecrUrl := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com", config.AwsAccountID, config.AwsRegion)
+
 		// the actual mutation is done by a string in JSONPatch style, i.e. we don't _actually_ modify the object, but
 		// tell K8S how it should modifiy it
 		p := []map[string]string{}
@@ -92,7 +92,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			imageReplaced := false
 			for _, reg := range config.RegistryList() {
 				if strings.HasPrefix(container.Image, reg) {
-					newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s", config.AwsAccountID, config.AwsRegion, container.Image)
+					newImage := fmt.Sprintf("%s/%s", ecrUrl, container.Image)
 					patch := map[string]string{
 						"op":    "replace",
 						"path":  fmt.Sprintf("/spec/containers/%d/image", i),
@@ -106,10 +106,16 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && isDockerHubOfficialImage(container.Image) {
+			if !imageReplaced && !strings.HasPrefix(container.Image, ecrUrl) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
-						newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/docker.io/library/%s", config.AwsAccountID, config.AwsRegion, container.Image)
+						// https://kubernetes.io/docs/concepts/containers/images/#image-names
+						newImage := fmt.Sprintf("%s/docker.io/%s", ecrUrl, container.Image)
+
+						if isDockerHubOfficialImage(container.Image) {
+							newImage = fmt.Sprintf("%s/docker.io/library/%s", ecrUrl, container.Image)
+						}
+
 						patch := map[string]string{
 							"op":    "replace",
 							"path":  fmt.Sprintf("/spec/containers/%d/image", i),
@@ -127,7 +133,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			imageReplaced := false
 			for _, reg := range config.RegistryList() {
 				if strings.HasPrefix(initcontainer.Image, reg) {
-					newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s", config.AwsAccountID, config.AwsRegion, initcontainer.Image)
+					newImage := fmt.Sprintf("%s/%s", ecrUrl, initcontainer.Image)
 					patch := map[string]string{
 						"op":    "replace",
 						"path":  fmt.Sprintf("/spec/initContainers/%d/image", i),
@@ -141,10 +147,16 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && isDockerHubOfficialImage(initcontainer.Image) {
+			if !imageReplaced && !strings.HasPrefix(initcontainer.Image, ecrUrl) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
-						newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/docker.io/library/%s", config.AwsAccountID, config.AwsRegion, initcontainer.Image)
+						// https://kubernetes.io/docs/concepts/containers/images/#image-names
+						newImage := fmt.Sprintf("%s/docker.io/%s", ecrUrl, initcontainer.Image)
+
+						if isDockerHubOfficialImage(initcontainer.Image) {
+							newImage = fmt.Sprintf("%s/docker.io/library/%s", ecrUrl, initcontainer.Image)
+						}
+
 						patch := map[string]string{
 							"op":    "replace",
 							"path":  fmt.Sprintf("/spec/initContainers/%d/image", i),
@@ -162,7 +174,7 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			imageReplaced := false
 			for _, reg := range config.RegistryList() {
 				if strings.HasPrefix(ephemeralcontainer.Image, reg) {
-					newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s", config.AwsAccountID, config.AwsRegion, ephemeralcontainer.Image)
+					newImage := fmt.Sprintf("%s/%s", ecrUrl, ephemeralcontainer.Image)
 					patch := map[string]string{
 						"op":    "replace",
 						"path":  fmt.Sprintf("/spec/ephemeralContainers/%d/image", i),
@@ -176,10 +188,16 @@ func actuallyMutate(body []byte) ([]byte, error) {
 			}
 
 			// Check if image is a Docker Hub official image
-			if !imageReplaced && isDockerHubOfficialImage(ephemeralcontainer.Image) {
+			if !imageReplaced && !strings.HasPrefix(ephemeralcontainer.Image, ecrUrl) {
 				for _, reg := range config.RegistryList() {
 					if reg == "docker.io" {
-						newImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/docker.io/library/%s", config.AwsAccountID, config.AwsRegion, ephemeralcontainer.Image)
+						// https://kubernetes.io/docs/concepts/containers/images/#image-names
+						newImage := fmt.Sprintf("%s/docker.io/%s", ecrUrl, ephemeralcontainer.Image)
+
+						if isDockerHubOfficialImage(ephemeralcontainer.Image) {
+							newImage = fmt.Sprintf("%s/docker.io/library/%s", ecrUrl, ephemeralcontainer.Image)
+						}
+
 						patch := map[string]string{
 							"op":    "replace",
 							"path":  fmt.Sprintf("/spec/ephemeralContainers/%d/image", i),
@@ -195,6 +213,9 @@ func actuallyMutate(body []byte) ([]byte, error) {
 
 		// parse the []map into JSON
 		resp.Patch, _ = json.Marshal(p)
+		if len(p) == 0 {
+			log.Printf("No patches created for pod %s:%s", pod.Namespace, pod.ObjectMeta.Name)
+		}
 
 		// Success, of course ;)
 		resp.Result = &metav1.Status{
@@ -205,7 +226,6 @@ func actuallyMutate(body []byte) ([]byte, error) {
 		// back into JSON so we can return the finished AdmissionReview w/ Response directly
 		// w/o needing to convert things in the http handler
 		responseBody, err = json.Marshal(admReview)
-
 		if err != nil {
 			return nil, err // untested section
 		}
