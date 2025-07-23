@@ -5,6 +5,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ecr-pull-through.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.deploymentAnnotations | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
